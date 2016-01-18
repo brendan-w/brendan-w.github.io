@@ -1,0 +1,105 @@
+<!doctype html>
+
+<!--
+	Written and Designed by Brendan Whitfield
+	because I got sick of doing it by hand...
+-->
+
+<html>
+	<head>
+		<!-- META -->
+		<meta charset='utf-8'/>
+		<meta name="author" content="Brendan Whitfield">
+		<meta name="description" content="Lumber Cut Calculator - A tool for efficiently cutting wood">
+		<meta name="keywords" content="lumber, calculator, wood, cut, calculate, layout">
+		
+		<title>Lumber Segmenter</title>
+
+		<!-- CSS -->
+		<style>.center,aside{position:absolute}aside h2,h1{color:#fff;text-transform:uppercase}article,aside,aside table td>*,details,figcaption,figure,footer,header,hgroup,menu,nav,section{display:block}#main,aside,body{min-height:100%}#welcome,aside{text-align:left}a,abbr,acronym,address,applet,article,aside,audio,b,big,blockquote,body,canvas,caption,center,cite,code,dd,del,details,dfn,div,dl,dt,em,embed,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hgroup,html,i,iframe,img,ins,kbd,label,legend,li,mark,menu,nav,object,ol,output,p,pre,q,ruby,s,samp,section,small,span,strike,strong,sub,summary,sup,table,tbody,td,tfoot,th,thead,time,tr,tt,u,ul,var,video{margin:0;padding:0;border:0;font:inherit;vertical-align:baseline}body{line-height:1;position:relative;background:#111;color:#888;font-family:Arial,sans-serif;font-size:10pt}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:after,blockquote:before,q:after,q:before{content:'';content:none}table{border-collapse:collapse;border-spacing:0}html{-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box;height:100%}*,:after,:before{-webkit-box-sizing:inherit;-moz-box-sizing:inherit;box-sizing:inherit}h1{font-size:14pt;font-weight:700}button,input,select{border:none;background:#111;color:#fff;width:100%;height:25px;font-weight:inherit;font-size:inherit;font-family:inherit}aside h2,button{font-weight:700}button{cursor:pointer}.center{top:50%;left:50%;-webkit-transform:translateY(-50%);-ms-transform:translateY(-50%);transform:translateY(-50%)}button#run{width:100%;height:50px;background-color:#2B87FF}button#run:hover{background-color:#34ACFF}aside{background:#222;top:0;left:0;width:300px}aside>section{padding:40px 20px}aside h2{margin-top:45px;margin-bottom:15px}aside h2:first-of-type{margin-top:0}aside table td,aside table th{padding:3px 1px}aside table tr td:first-of-type,aside table tr th:first-of-type{padding-left:0}aside table tr td:last-of-type,aside table tr th:last-of-type{padding-right:0}aside table#settings th{padding-left:10px}ul#output li,ul#output li *{display:inline-block}aside table input,aside table select{padding:3px}aside button.add{float:right;width:50px;height:100%;font-size:14px}aside button.add:hover{color:#2F2}aside table .color,aside table button.delete{width:25px;height:25px}aside table button.delete:hover{color:#F30}#main{padding:30px 30px 30px 300px;text-align:center}#errors{color:#ff1e1e}ul#output li{padding-top:20px}ul#output li h1{color:#fff;font-size:26px;padding-right:20px;width:4em;text-align:right}#progress{width:400px;height:20px;background-color:#333}#progress .bar{height:100%;background-color:#fff}#print{margin-top:50px}#print button{width:200px;height:50px;background:#333}#print button:hover{width:200px;height:50px;background:#444}#welcome{width:300px}#welcome>*{margin-bottom:1em}@media print{#print,#progress,#welcome,aside{display:none!important}#main{padding:0}ul#output li h1{font-size:20px;color:#000}ul#output li canvas{max-width:580px;height:auto}}</style>
+
+		<!-- JS -->
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+		<script>function color_for_index(e){var t=282*e;return t=mod(t,360),{"background-color":"hsl("+t.toString()+", 100%, 65%)"}}function selectIndex(e){for(var t=e.val(),r=e.find("option"),n=0;n<r.length;n++)if(r[n].innerHTML===t)return n;return-1}function parse_compound_float(e){var t=parseFloat(e);if(!isNaN(t)){e.replace("and"," "),e.replace("+"," "),e.replace("-"," "),e.replace(","," "),e.replace("("," "),e.replace(")"," ");var r=e.indexOf("/");if(-1!=r){var n,o=e.lastIndexOf(" ",r),a=e.substring(r+1,e.length);-1!=o?n=e.substring(o+1,r):(n=e.substring(0,r),t=0);var s=parseFloat(n)/parseFloat(a);isNaN(s)||(t+=s)}}return t}function mod(e,t){return(e%t+t)%t}function run(){reset_all();var e={settings:{mode:$("#mode").val(),kerf:parse_compound_float($("#kerf").val())},sources:[],cuts:[]};$sources.find("tbody tr").each(function(t,r){var n=parse_compound_float($(r).find(".length").val()),o=parseInt($(r).find(".quantity").val());isNaN(n)&&log_error("Source #"+t+": invalid length measurement"),o=isNaN(o)?1/0:o,e.sources.push({length:n,quantity:o})}),$cuts.find("tbody tr").each(function(t,r){var n=parse_compound_float($(r).find(".length").val()),o=parseInt($(r).find(".quantity").val()),a=$(r).find(".color").css("background-color");isNaN(n)&&log_error("Cut #"+t+": invalid length measurement"),isNaN(o)&&log_error("Cut #"+t+": invalid quantity"),e.cuts.push({length:n,quantity:o,color:a})}),has_error()||(solver_worker=new Worker("solver.js"),solver_worker.onmessage=on_solver_message,solver_worker.postMessage(e))}function on_solver_message(e){var t=e.data;switch(t.type){case"success":$progress.hide(),display_results(t.data);break;case"failure":$progress.hide(),log_error(t.data);break;case"progress":}}function display_results(e){var t=canvas_width/largest_board(e);e.layout.forEach(function(r){var n=add_result(),o=Math.round(r.length*t);n.find("h1").text(Math.round(100*r.length)/100);var a=n.find("canvas")[0].getContext("2d");a.fillStyle=canvas_bg,a.fillRect(0,0,o,canvas_height),a.font="normal 11pt Arial, sans-serif",a.textAlign="center",a.textBaseline="middle";var s=0,i=e.settings.kerf*t;i=Math.max(Math.round(i),1),r.cuts.forEach(function(r){var n=Math.round(r.length*t),o=Math.round((r.length+e.settings.kerf)*t);a.fillStyle=r.color,a.fillRect(s,0,o,canvas_height),a.fillStyle="#000",a.fillText(r.length,s+n/2,canvas_height/2),s+=o,a.fillRect(s-i,0,i,canvas_height)})}),$output.show(),$print.show()}function resize(){canvas_width=$output.width()-104,canvas_width=canvas_width>max_canvas_width?max_canvas_width:canvas_width}function set_progress(e){var t=Math.round($progress.width()*e);$progress.find(".bar").width(t)}function largest_board(e){var t=0;return e.layout.forEach(function(e){e.length>t&&(t=e.length)}),t}function add_result(){var e=$("     <li>         <h1></h1>         <canvas width='"+canvas_width+"' height='"+canvas_height+"'></canvas>     </li>");return $output.append(e),e}function log_error(e){$errors.html($errors.html()+"<br>"+e),$errors.show()}function has_error(){return $errors.html().length>0}function add_item(e){var t=e.find("tbody").children().last();e.append(t.clone(!0)),update_colors()}function update_colors(){$cuts.find("tbody tr").each(function(e,t){$(t).find(".color").css(color_for_index(e))})}function update_delete(){var e=$sources.find("tbody tr").length>1;$sources.find("tbody tr .delete").toggle(e);var t=$cuts.find("tbody tr").length>1;$cuts.find("tbody tr .delete").toggle(t)}function reset_all(){$welcome.hide(),$output.hide(),$output.empty(),$print.hide(),$errors.empty(),$progress.hide(),solver_worker&&(solver_worker.terminate(),solver_worker=null)}var solver_worker,$sources,$cuts,$output,$print,$errors,$progress,$welcome,canvas_width=800,canvas_height=20,canvas_bg="#888",max_canvas_width=800;$(function(){$sources=$("#sources"),$cuts=$("#cuts"),$output=$("#output"),$print=$("#print"),$errors=$("#errors"),$progress=$("#progress"),$welcome=$("#welcome"),$("#add-source").click(function(){add_item($sources),update_delete()}),$("#add-cut").click(function(){add_item($cuts),update_delete()}),$(".delete").on("click",function(){$(this).closest("tr").remove(),update_colors(),update_delete()}),$("#run").click(run),$(window).keypress(function(e){13==e.keyCode&&run()}),$print.find("button").click(function(){window.print()}),update_colors(),update_delete(),resize(),reset_all(),$welcome.show()});</script>
+
+	</head>
+	<body onunload=''>
+		<aside>
+			<button id="run">Run</button>
+
+			<section>
+				<h2>Settings</h2>
+
+				<table id="settings">
+					<tbody>
+						<tr>
+							<td>
+								<select id="mode">
+									<option value="optimal" selected="selected">Optimal</option>
+									<option value="suboptimal">Suboptimal (fast)</option>
+								</select>
+							</td>
+							<th>Mode</th>
+						</tr>
+						<tr>
+							<td><input id="kerf" type="input" value="3/16"/></td> <!-- kerf -->
+							<th>Saw&nbsp;Kerf</th>
+						</tr>
+					</tbody>
+				</table>			
+
+				<h2>Source Material<button id="add-source" class="add">+</button></h2>
+
+				<table id="sources">
+					<thead>
+						<tr>
+							<th>Length</th><th>Quantity</th><th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><input class="length" type="input" required/></td>
+							<td><input class="quantity" type="number" min="0" placeholder="unlimited"/></td>
+							<td><button class="delete">X</button></td>
+						</tr>
+					</tbody>
+				</table>
+
+				<h2>Cut Sizes<button id="add-cut" class="add">+</button></h2>
+
+				<table id="cuts">
+					<thead>
+						<tr>
+							<th></th><th>Length</th><th>Quantity</th><th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><div class="color"></div></td>
+							<td><input class="length" type="input" required/></td>
+							<td><input class="quantity" type="number" min="0" value="1" required/></td>
+							<td><button class="delete">X</button></td>
+						</tr>
+					</tbody>
+				</table>
+
+			</section>
+		</aside>
+
+		<div id="main">
+			<ul id="output"></ul>
+			<section id="errors"></section>
+			<section id="progress" class="center"><div class="bar"></div></section>
+			<section id="print"><button>Print</button></section>
+			<section id="welcome" class="center">
+				<h1>Lumber Segmenter</h1>
+				<p>
+					Calculates cuts of lumber that minimize loss. Enter the length and quantity for your source lumber, and your desired cuts, and a cut pattern will be generated.
+				</p>
+				<p>
+					If a source quantity is left blank, it will be treated as an unlimited resource. Fractional length measurements such as "34 1/2" are welcome. Units are irrelevant, as long as they're consistent.
+				</p>
+			</section>
+		</div>
+	</body>
+</html>
